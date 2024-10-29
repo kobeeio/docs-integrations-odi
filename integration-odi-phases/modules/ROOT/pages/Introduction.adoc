@@ -1,0 +1,11 @@
+// The imagesdir attribute is only needed to display images during offline editing. Antora neglects the attribute.
+:imagesdir: ../images
+:description: Kobee ODI Phases (English)   
+:revnumber: v2.3
+:revdate: 24.10.2024
+
+= Introduction
+
+IKAN Development has developed 2 solutions using Kobee Phases for managing the Lifecycle of ODI Objects.
+
+The first solution uses the XML exported form of ODI Objects to restore the objects to the target ODI Repositories, while the second solution uses ODI Deployment Archives to deploy ODI Objects  to the target ODI Repositories.

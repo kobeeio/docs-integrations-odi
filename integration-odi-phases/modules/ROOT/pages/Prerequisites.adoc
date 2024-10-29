@@ -1,0 +1,17 @@
+// The imagesdir attribute is only needed to display images during offline editing. Antora neglects the attribute.
+:imagesdir: ../images
+:description: Kobee ODI Phases (English)   
+:revnumber: v2.3
+:revdate: 24.10.2024
+
+= Prerequisites
+
+ODI version 12.2.1.4.230929 or higher must be installed. However, it is recommended to upgrade to the latest available patch version.
+
+The ODI Master Repository that will be used for Development needs to be connected with Git using the http or https protocol. Other protocols or versioning systems are not supported.
+
+The ODI Master Repository that will be used for Development and is connected with Git can contain only 1 ODI Work Repository. Having multiple ODI Work Repositories connected to 1 ODI Master Repository and enabling Version Control with Git or Subversion is NOT supported by ODI.
+
+Kobee 6.0 or later must be installed and must be able to connect to the used Git and ODI repositories.
+
+Apache Ant 1.10 or higher must be installed on the Kobee Server and on any Kobee Agent that will run the Kobee ODI Phases.

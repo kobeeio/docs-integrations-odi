@@ -1,0 +1,333 @@
+// The imagesdir attribute is only needed to display images during offline editing. Antora neglects the attribute.
+:imagesdir: ../images
+:description: Kobee ODI Phases (English)   
+:revnumber: v2.3
+:revdate: 24.10.2024
+
+= Kobee Deployment Archive Phases
+
+The Kobee Deployment Archive Phases deploy ODI Objects to target ODI Repositories using ODI Deployment Archives. 
+
+The solution consists of 3 Kobee Phases:
+
+* *Share Level Parameters Phase*: a Kobee Phase that shares Kobee Level Parameters to a location that can be accessed by the “Create ODI Deployment Archive” Phase
+* *Create ODI Deployment Archive Phase*: a Kobee Phase that creates an ODI Deployment Archive based on a previously created ODI Partial Tag
+* *Apply ODI Deployment Archive Phase*: a Kobee Phase that applies an ODI Deployment Archive to a target ODI Repository, and optionally creates an ODI Rollback Archive.
+
+The solution's typical flow is as follows:
+
+. A User uses ODI Studio to create a Partial Tag
+. A User launches a Kobee Build Level Request, specifying the created Partial Tag
+. The Kobee Build Level uses the “Create ODI Deployment Archive” Phase to create an ODI Deployment Archive based on the specified Partial Tag
+. A User launches a Kobee Test Level Request, which will use the “Apply ODI Deployment Archive” Phase to apply the previously created ODI Deployment Archive to a Test ODI Repository
+. A User launches a Kobee Production Level Request, which will use the “Apply ODI Deployment Archive” Phase to apply the previously created ODI Deployment Archive to a Production ODI Repository
+
+
+== Share Level Parameters Phase
+*Full name*:
+`io.kobee.phases.database.odi.shareLevelParameters`
+
+The “Share Level Parameters” Phase shares Kobee Level Parameters to a location that can be accessed by the “Create Deployment Archive” Phase.
+For the “Create ODI Deployment Archive” Phase to work properly, it needs access to a clone of the Git repository that is associated with the ODI Master repository. During the execution of a Kobee Build Level Request, the Git repository is cloned. 
+
+The location is specified by the Level's “source” Parameter. However, the “Create ODI Deployment Archive” Phase is part of a Build Environment, and a Build Environment doesn't have access to a Level's “source” Parameter. 
+
+The “Share Level Parameters” Phase functions as a “bridge” between a Level and its Build Environment by copying the .properties file containing all the Level's Parameters to a shared location.
+
+The “Share Level Parameters” Phase should be added to a Kobee Build Level, and placed between the “Retrieve Code” and the “Build” Phases.
+
+*Phase Parameters*:
+[cols="1,1"]  
+|===
+
+|*shared.dir*
+|directory to where the .properties file containing the Level Parameters will be copied.
+
+|===
+
+
+== Create ODI Deployment Archive Phase
+*Full name*:
+`io.kobee.phases.database.odi.createDeploymentArchive`
+
+The “Create ODI Deployment Archive” Phase creates an ODI Deployment Archive based on a previously created Partial Tag. It needs a connection to an ODI repository and to the Git repository that is linked with this ODI repository. In fact, it needs a clone of the Git repository, with the tagged ODI objects checked out. Luckily, Kobee’s “Retrieve Code” Phase provides exactly that when the Project Stream of the Kobee Project is set to “Tag-Based”. So this phase, while added to a Build Environment, will use the value of its “level.parameters.dir” Parameter to find the Level Parameters. It will then use the Level Parameter named “level.source” to find the location of the cloned Git repository.
+The Phase will create 2 ODI Deployment Archives : 1 containing all the tagged ODI Objects, and 1 containing only those tagged ODI Objects that can be deployed to an ODI Execution Repository (Scenarios, Load Plans, Schedules and Sessions).
+
+[IMPORTANT] 
+==== 
+for this Phase to work properly, you need to enable the “Shared Branch (Git Offline mode)” option in the Git repository Configuration in the ODI Studio, or else this Phase will report the error : “ODI-12420: Failed to get Current branch. Ref master cannot be resolved”.
+====
+
+The “Create ODI Deployment Archive” Phase should be added to a Kobee Build Environment, and placed before the “Compress Build” Phase.
+
+*Phase Parameters*:
+[cols="1,1"]  
+|===
+
+|odi.user.name
+|User name of the ODI user. Required parameter. Default value: “SUPERVISOR”.
+
+|odi.user.password
+|Password of the ODI user. Required parameter.
+
+|odi.master.schema
+|Name of the database schema that contains the ODI Master repository. Required parameter. Default value: “ODI_DEVM”.
+
+|odi.master.password
+|Password of the database schema that contains the ODI Master repository. Required parameter.
+
+|odi.work.name
+|Name of the ODI Work repository. Required parameter. Default value: “ODI_DEVW”.
+
+|odi.jdbc.url
+|JDBC URL of the database containing the ODI repositories. Required parameter.
+
+|odi.action.jvmargs
+|JVM arguments for the forked Java process that will create the ODI Deployment Archives. Required parameter. Default value: “-Xmx2g”.
+
+|odi.action.loglevel
+|Log level. Valid values are: “error”, “warn”, “info”, “debug”. Required parameter. Default value: “info”.
+
+|git.url
+|URL of the Git repository associated with the ODI Master repository. Required parameter.
+
+|git.user
+|User name of the user that will be used to connect to the Git repository. Required parameter.
+
+|git.password
+|Password of the user that will be used to connect to the Git repository. Required parameter.
+
+|git.auth.type
+|Git Authentication type. Valid values are : “http”, “https”. Required parameter. Default value: “http”.
+
+|da.includePhysicalTopologyData
+|Flag to include Physical Topology data into the ODI Deployment Archive or not. Required parameter. Default value: “false”.
+
+|level.parameters.dir 
+|Shared folder where the .properties file holding the Level Parameters is located. Should match the value of the “shared.dir” parameter of the “Share Level Parameters” Phase. Required parameter. Example: “/opt/ikan/kobee_env/ODI_DEV/shared”.
+
+|===
+
+
+== Apply ODI Deployment Archive Phase
+*Full name*:
+`io.kobee.phases.database.odi.applyDeploymentArchive`
+
+The “Apply ODI Deployment Archive” Phase applies the ODI Deployment Archive that was created by the “Create ODI Deployment Archive” Phase to the target ODI Work or Execution Repository. It expects the ODI Deployment Archive to be present in its “source” directory, as a zip file with name “<vcrTag>.zip”, or “EXEC_<vcrTag>.zip” in case the target ODI repository is of type “execution”. It needs a connection to the target ODI repository. 
+Optionally, it can create an ODI Rollback Archive. ODI Rollback Archives are created in the specified Rollback Archive shared folder with file names of the form “<Level Request Oid>_<vcrTag>_rollback.zip”.
+
+The “Apply ODI Deployment Archive” Phase should be added to a Kobee Deploy Environment, and placed between the “Decompress Build Result” and the “Cleanup Build Result” Phases.
+
+*Phase Parameters*:
+[cols="1,1"]  
+|===
+
+|odi.user.name
+|User name of the ODI user. Required parameter. Default value: “SUPERVISOR”.
+
+|odi.user.password
+|Password of the ODI user. Required parameter.
+
+|odi.master.schema
+|Name of the database schema that contains the ODI Master repository. Required parameter. Default value: “ODI_UATM”.
+
+|odi.master.password
+|Password of the database schema that contains the ODI Master repository. Required parameter.
+
+|odi.work.name
+|Name of the ODI Work repository. Required parameter. Default value: “ODI_UATW”.
+
+|odi.jdbc.url
+|JDBC URL of the database containing the ODI repositories. Required parameter.
+
+|odi.action.jvmargs
+|JVM arguments for the forked Java process that will apply the Deployment Archive. Required parameter. Default value: “-Xmx2g”.
+
+|odi.action.loglevel
+|Log level. Valid values are: “error”, “warn”, “info”, “debug”. Required parameter. Default value: “info”.
+
+|da.includePhysicalTopologyData
+|Flag to include Physical Topology data when applying the ODI Deployment Archive or not. Required parameter. Default value: “false”.
+
+|da.createRollback 
+|Flag to create an ODI Rollback Deployment Archive when applying the ODI Deployment Archive or not. Required parameter. Default value: “true”.
+
+|da.applyExec
+|When true, apply the EXEC ODI Deployment Archive instead of the full ODI Deployment Archive. Set to “true” when applying the ODI Deployment Archive to an ODI Execution Repository. Required parameter. Default value: “false”.
+
+|===
+
+
+== Kobee Project Setup
+In this section we will describe a typical Project Setup in Kobee for working with the Kobee Deployment Archive Phases.
+
+*ODI Development* repository: 
+
+* Master: ODI_DEV_MASTER
+* Work: ODI_DEV_WORK
+
+*ODI Test* repository: 
+
+* Master: ODI_TST_MASTER
+* Work: ODI_TST_WORK (Execution)
+
+*ODI Production* repository: 
+
+* Master: ODI_PRD_MASTER
+* Work: ODI_PRD_WORK (Execution)
+
+*Git repository* defined in Kobee:
+
+* name: ODI_DEV
+* URL: +++ https://ikan571v/git/odi_dev +++
+
+
+=== Import the Phases
+Before you can use them, you must import the Phases into your Kobee installation. Since the phases are large, you must first increase the upload limit:
+
+Edit TOMCAT_HOME/webapps/alm/WEB-INF/classes/struts.xml and find the line:
+`<constant name="struts.multipart.maxSize" value="100000000" />`
+
+Replace it with:
+`<constant name="struts.multipart.maxSize" value="500000000" />`
+
+You also need to increase the memory of Tomcat to 2GB before importing the Phases.
+
+[loweralpha]
+. In the Kobee UI, go to “Global Administration”, and then select “Phases” → “Import”.
+. Click “Select File” and select the .jar file of the phase you want to import.
+. When the upload has finished, click “Import” to import the phase.
++
+You will need to import all three Deployment Archive phases:
++
+* io.kobee.phases.database.odi.shareLevelParameters
+* io.kobee.phases.database.odi.createDeploymentArchive
+* io.kobee.phases.database.odi.applyDeploymentArchive
+
+
+=== Create Project and Project Stream
+[loweralpha]
+. Create a new Kobee Project with name “ODI_DEV”.
+. Select “Release-based” as Project Type.
+. Select the Git repository “ODI_DEV” as VCR.
+. In the “Head Project Stream Settings” Panel, set “Tag-Based” to “Yes”.
+
+
+=== Create BUILD Level
+[loweralpha]
+. Create a new Build Level with name “BUILD”.
+. Edit the Level's Phases and insert a new Phase with name “Share Level Parameters”. The Phase must be inserted at a position between the “Retrieve Code” phase and the “Build” phase.
+. Edit the Phase's Parameters and set the “alm.phase.builder” to an Ant Scripting Tool that is installed on the Kobee Server.
+
+. Edit the Build Level, and create a new Build Environment for it with the following parameters:
++
+*  *Name*: build
+*  *Level*: BUILD
+*  *Machine*: MUST be the Kobee Server Machine, or else the “Create ODI Deployment Archive” Phase can't access the Git repository that was cloned by the Kobee “Retrieve Code” phase.
+*  *Build Tool*:  an Ant Scripting Tool that is installed on the Kobee Server
+*  *Build Script*: not used
+*  *Source/Target Location*: directory on the Kobee Server Machine that can be used as the Build Environment's source/target location. For example : /opt/ikan/kobee60_env/ODI_DEV/BUILD/build/source
+
+. Edit the Build Environment's Phases, and remove the following Kobee Core Phases:
++
+*  Transport Source
+*  Verify Build Script
+*  Execute Script
+*  Transport Deploy Script
+
+. Next, add the “Create ODI Deployment Archive” Phase in the first position.
+
+. Edit the Environment Phase Parameters of the “Create ODI Deployment Archive” Phase and configure all Parameters.
++
+For example :
++
+image::build-level-phase-parameters-deployment-archves.png[,892,454]  
++
+Finally, add the BUILD Level to the BASE Lifecycle.
+
+
+=== Create TEST Level
+[loweralpha]
+. Create a new Test Level with name “TEST”.
+
+. Edit the Test Level, and create a new Deploy Environment for it with the following parameters:
++
+* *Name*: testdeploy
+* *Level*: TEST
+* *Machine*: the Kobee Agent Machine that will execute the application of ODI Deployment Archives. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine.
+* *Build Environment*: build
+* *Deploy Tool*:  an Ant Scripting Tool that is installed on the Kobee Agent Machine
+* *Deploy Script*: not used
+* *Source/Target Location*: directory on the Kobee Agent Machine that can be used as the Deploy Environment's source/target location. For example : /opt/ikan/kobee60_env/ODI_DEV/TEST/testdeploy/source
+
+. Edit the Deploy Environment's Phases, and remove the following Kobee Core Phases:
++
+* Verify Deploy Script
+* Execute Script
+
+. Next, add the “Apply ODI Deployment Archive” Phase after the “Decompress Build Result” phase and before the “Cleanup Build Result” phase.
+
+. Edit the Environment Phase Parameters of the “Apply ODI Deployment Archive” Phase and configure all Parameters.
++
+For example:
++
+image::test-level-phase-parameters-deployment-archves.png[,921,415]  
++
+Finally, add the TEST Level to the BASE Lifecycle.
+
+
+=== Create PROD Level
+[loweralpha]
+. Create a new Production Level with name “PROD”.
+
+. Edit the Production Level, and create a new Deploy Environment for it with the following parameters:
++
+* *Name*: proddeploy
+* *Level*: PROD
+* *Machine*: the Kobee Agent Machine that will execute the application of ODI Deployment Archives. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine.
+* *Build Environment*: build
+* *Deploy Tool*:  an Ant Scripting Tool that is installed on the Kobee Agent Machine
+* *Deploy Script*: not used
+* *Source/Target Location*: directory on the Kobee Agent Machine that can be used as the Deploy Environment’s source/target location. For example : /opt/ikan/kobee60_env/ODI_DEV/PROD/proddeploy/source
+
+. Edit the Deploy Environment’s Phases, and remove the following Kobee Core Phases:
++
+* Verify Deploy Script
+* Execute Script
+
+. Next, add the “Apply ODI Deployment Archive” Phase after the “Decompress Build Result” phase and before the “Cleanup Build Result” phase.
+
+. Edit the Environment Phase Parameters of the “Apply ODI Deployment Archive” Phase and configure all Parameters.
++
+For example :
++
+image::prod-level-phase-parameters-deployment-archves.png[,862,408]  
++
+Finally, add the PROD Level to the BASE Lifecycle.
+
+
+=== Using the Kobee Project
+Using the Kobee Project
+We will explain in detail the steps needed to promote a change in an ODI object from Development to Production.
+
+*In ODI Studio*:
+
+. Make a change to an ODI object (for example : a Mapping) and save the change.
+. Generate (or re-generate) the Scenario of the Mapping.
+. Commit the changes to Git by creating a VCR Version for the Mapping and the Scenario.
+. Select Team → VCS Actions → Create Partial Tag. 
+. Provide a name for the tag (for example : “kobee_pt01”).
+. Drag the modified Mapping from the Designer tab into the “Objects to be Added” panel. The Scenario and other dependent objects will be automatically added.
+. Click “OK” to create the Partial Tag
+
+*In Kobee*:
+
+. Create a Level Request for the BUILD Level using the Desktop or by selecting “Level Requests” → “Create” in the Top menu.
+. On the “Create Level Request” page, provide a description for the Level Request, and fill in the name of the created Partial tag in the “VCR Tag” field.
+. Click “Create” to create the Level Request. This will create an ODI Deployment Archive containing all the ODI Objects that were added to the Partial Tag.
+. When it has finished, create a Level Request for the TEST Level.
+. On the “Create Level Request” page, provide a description for the Level Request, and select the latest Build available on the BUILD Level.
+. Click “Create” to create the Level Request. This will apply the ODI Deployment Archive to the ODI TEST repository.
+. When it has finished, create a Level Request for the PROD Level.
+. On the “Create Level Request” page, provide a description for the Level Request, and select the latest Build available on the TEST Level.
+. Click “Create” to create the Level Request. This will apply the ODI Deployment Archive to the ODI PRODUCTION repository.

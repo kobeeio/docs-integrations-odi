@@ -1,0 +1,283 @@
+// The imagesdir attribute is only needed to display images during offline editing. Antora neglects the attribute.
+:imagesdir: ../images
+:description: Kobee ODI Phases (English)   
+:revnumber: v2.3
+:revdate: 24.10.2024
+
+= Kobee Restore ODI Phases
+
+The “Kobee Restore ODI Phases” deploy ODI Objects to target ODI Repositories by restoring ODI Objects that were exported to XML to target ODI Repositories.
+
+The solution consists of 2 Kobee Phases:
+
+* *Copy ODI Files Phase*: a Kobee Phase that copies all related ODI files from a source dir to a target dir.
+* *Restore ODI 12R2 Objects Phase*: a Kobee Phase that restores selected ODI Objects to a target ODI Repository.
+
+The solution's typical flow is as follows:
+
+. A User creates a Kobee Package
+. A User edits the Kobee Package, and selects the ODI Objects that need to be restored
+. A User launches a Kobee Build Level Request for the Kobee Package, which adds all selected ODI Objects to the Kobee Build Archive
+. A User launches a Kobee Test Level Request for the Kobee Package, which retrieves the archive containing the ODI Objects from the Kobee Build Archive, and uses the “Restore ODI 12R2 Objects” Phase to restore the selected ODI Objects to a Test ODI Repository
+. A User launches a Kobee Production Level Request for the Kobee Package, which retrieves the archive containing the ODI Objects from the Kobee Build Archive, and uses the “Restore ODI 12R2 Objects” Phase to restore the selected ODI Objects to a Production ODI Repository
+
+It is recommended to use these phases in a Kobee Project of type “Package-Based”. When the phases are used in a Kobee Project of type “Release-Based”, no selection of ODI Objects to restore is possible, and thus all ODI Objects of an ODI Repository will be restored, which may not be what you want and may be very time-consuming.
+
+
+== Copy ODI Files Phase
+
+*Full name*:
+`io.kobee.phases.database.odi.copyODIFiles`
+
+The “Copy ODI Files” Phase copies all ODI-related files from a directory specified by the parameter “source.dir” to a target directory specified by the parameter “target.dir”. By default, the phase copies all *.xml, *.shadow and *.sql files, but custom include and exclude patterns can be set. 
+
+The “Copy ODI Files” Phase should be added to a Kobee Build Environment, and placed between the “Transport Source” and “Compress Build” Phases.
+
+*Phase Parameters*:
+[cols="1,1"]  
+|===
+
+|*source.dir*
+|Source directory to copy from. Required parameter. Default value : “${source}”.
+
+|*target.dir*
+|Target directory to copy to. Required parameter. Default value : “${target}”.
+
+|*customIncludes*
+|Custom patterns of files to include in the copy. Patterns should follow the syntax of Ant Patterns. Multiple patterns can be separated by ",". Optional parameter. Default value : +++ “**/*.*” +++.
+
+|*customExcludes*
+|Custom patterns of files to exclude in the copy. Patterns should follow the syntax of Ant Patterns. Multiple patterns can be separated by ",". Optional parameter.
+
+|*includeEmptyDirs*
+|Flag to indicate whether to copy empty directories to the target directory. Valid values are : “true”, “false”. Required parameter. Default value : “true”
+
+|*flattenCopy*
+|Flag to indicate whether to copy all files to the target directory without preserving the directory structure in the source directory. Valid values are : “true”, “false”. Required parameter. Default value : “false”
+
+|*verboseCopy*
+|Flag to indicate whether to log the files that have been copied. Valid values are : “true”, “false”. Required parameter. Default value : “true”
+
+|*cleanTarget*
+|Flag to indicate whether to clean the target directory before copying. Valid values are : “true”, “false”. Required parameter. Default value : “false”
+
+|===
+
+
+== Restore ODI 12R2 Objects Phase
+*Full name*:
+`io.kobee.phases.database.odi.restoreODI12R2Objects`
+
+The “Restore ODI 12R2 Objects” Phase restores exported ODI Objects to a target ODI Repository. By default, the Phase will restore all ODI Objects found in the folder specified by the “odi.export.dir” parameter, but this can be customized by specifying include and exclude patterns by setting the parameters “includePattern” and “excludePattern”.
+
+The “Restore ODI 12R2 Objects” Phase should be added to a Kobee Deploy Environment, and placed after the “Decompress Build Result” Phase.
+
+*Phase Parameters*:
+[cols="1,1"]  
+|===
+
+|*odi.user.name*
+|User name of the ODI user. Required parameter. Default value: “SUPERVISOR”.
+
+|*odi.user.password*
+|Password of the ODI user. Required parameter.
+
+|*odi.master.schema*
+|Name of the database schema that contains the ODI Master repository. Required parameter. Default value: “ODI_UATM”.
+
+|*odi.master.password*
+|Password of the database schema that contains the ODI Master repository. Required parameter.
+
+|*odi.work.name*
+|Name of the ODI Work repository. Required parameter. Default value: “ODI_UATW”.
+
+|*odi.jdbc.url*
+|JDBC URL of the database containing the ODI repositories. Required parameter.
+
+|*odi.home*
+|ODI_HOME Location. Required parameter.
+
+|*odi.home.classpath.includes*
+|List of paths to jars to include on the classpath of the phase. Paths should be separated by a "," and are relative to the ODI_HOME location. Required parameter. Default value : +++ "odi/sdk/lib/*.jar,oracle_common/modules/oracle.jps/*.jar,oracle_common/modules/oracle.nlsrtl/*.jar,oracle_common/modules/javax.management.j2ee.jar,oui/modules/*.jar" +++
+
+|*odi.jps-config*
+|Path to the OPSS configuration file used by ODI. Required parameter. Default value: “${odi.home}/oracle_common/modules/oracle.jps/domain_config/jse/jps-config.xml”
+
+|*odi.export.dir*
+|Folder that contains the exported ODI files that will be restored. Required parameter. Default value: “${source}/odi”
+
+|*includePattern*
+|Pattern of ODI Objects to include in the restore. The pattern should be a valid Regular Expression. Multiple patterns can be separated by a "\|". Required parameter.
+
+|*excludePattern*
+|Pattern of ODI Objects to exclude from the restore. The pattern should be a valid Regular Expression. Multiple patterns can be separated by a "\|". Required parameter.
+
+|*odi.action.jvmargs*
+|JVM arguments for the forked Java process that will restore the ODI Objects. Required parameter. Default value: “-Xmx2g”.
+
+|*odi.action.loglevel*
+|Log level. Valid values are : “error”, “warn”, “info”, “debug”. Required parameter. Default value: “info”.
+
+|===
+
+
+
+== Kobee Project Setup
+In this section we will describe a typical Project Setup in Kobee for working with the Kobee Restore ODI Phases.
+
+
+=== ODI and Git setup
+In the example, we assume the following setup:
+
+*ODI Development* repository: 
+
+* Master: ODI_DEV_MASTER
+* Work: ODI_DEV_WORK
+
+*ODI Test* repository: 
+
+* Master: ODI_TST_MASTER
+* Work: ODI_TST_WORK (Execution)
+
+*ODI Production* repository: 
+
+* Master: ODI_PRD_MASTER
+* Work: ODI_PRD_WORK (Execution)
+
+*Git repository* defined in Kobee:
+
+* name: ODI_DEV
+* URL: +++ https://ikan571v/git/odi_dev +++
+
+
+=== Import the Phases
+Before you can use them, you must import the Phases into your Kobee installation. 
+
+[loweralpha]
+. In the Kobee UI, go to “Global Administration”, and then select “Phases” → “Import”.
+. Click “Select File” and select the .jar file of the phase you want to import.
+. When the upload has finished, click “Import” to import the phase.
++
+You will need to import these phases:
+
+* `io.kobee.phases.database.odi.copyODIFiles`
+* `io.kobee.phases.database.odi.restoreODI12R2Objects`
+
+
+=== Create Project and Project Stream
+[loweralpha]
+. Create a new Kobee Project with name “ODI_DEV”.
+. Select “Package-based” as Project Type.
+. Select the Git repository “ODI_DEV” as VCR.
+
+
+=== Create BUILD Level
+[loweralpha]
+. Create a new Build Level with name “BUILD”.
+
+. Edit the Build Level, and create a new Build Environment for it with the following parameters:
++
+* *Name*: build
+* *Level*: BUILD
+* *Machine*: the Kobee Agent Machine that will copy the exported ODI Objects from a source to a target directory. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine.
+* *Build Tool*:  an Ant Scripting Tool that is installed on the Machine
+* *Build Script*: not used
+* *Source/Target Location*: directory on the Machine that can be used as the Build Environment's source/target location. For example : /opt/ikan/kobee60_env/ODI_DEV/BUILD/build/source
+
+. Edit the Build Environment's Phases, and remove the following Kobee Core Phases:
++
+* Verify Build Script
+* Execute Script
+* Transport Deploy Script
+
+. Next, add the “Copy ODI Files” Phase between the “Transport Source” and “Compress Build” Phases.
+
+. Edit the Environment Phase Parameters of the “Copy ODI Files” Phase and configure all Parameters.
++
+For example:
++
+image::build-level-phase-parameters.png[,672,321]  
++
+. Finally, add the BUILD Level to the BASE Lifecycle.
+
+
+=== Create TEST Level
+[loweralpha]
+. Create a new Test Level with name “TEST”.
+
+. Edit the Test Level, and create a new Deploy Environment for it with the following parameters:
+* *Name*: testdeploy
+* *Level*: TEST
+* *Machine*: the Kobee Agent Machine that will execute the restore of the ODI Objects. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine. It must be a Machine with an ODI installation on it.
+* *Build Environment*: build
+* *Deploy Tool*:  an Ant Scripting Tool that is installed on the Machine
+* *Deploy Script*:  not used
+* *Source/Target Location*: directory on the Machine that can be used as the Deploy Environment's source/target location. For example : /opt/ikan/kobee60_env/ODI_DEV/TEST/testdeploy/source
+
+. Edit the Deploy Environment's Phases, and remove the following Kobee Core Phases:
+* Verify Deploy Script
+* Execute Script
+
+. Next, add the “Restore ODI 12R2 Objects” Phase after the “Decompress Build Result” phase and before the “Cleanup Build Result” phase.
+
+. Edit the Environment Phase Parameters of the “Restore ODI 12R2 Objects” Phase and configure all Parameters.
++
+For example:
++
+image::test-level-phase-parameters.png[,1209,456]  
++
+. Finally, add the TEST Level to the BASE Lifecycle.
+
+
+=== Create PROD Level
+[loweralpha]
+. Create a new Production Level with name “PROD”.
+
+. Edit the Production Level, and create a new Deploy Environment for it with the following parameters:
+* *Name*: proddeploy
+* *Level*: PROD
+* *Machine*: the Kobee Agent Machine that will execute the restore of the ODI Objects. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine. It must be a *Machine with an ODI installation on it.
+* *Build Environment*: build
+* *Deploy Tool*:  an Ant Scripting Tool that is installed on the Machine
+* *Deploy Script*:  not used
+* *Source/Target Location*: directory on the Machine that can be used as the Deploy Environment's source/target location. For example: /opt/ikan/kobee60_env/ODI_DEV/PROD/proddeploy/source
+
+. Edit the Deploy Environment's Phases, and remove the following Kobee Core Phases:
+* Verify Deploy Script
+* Execute Script
+
+. Next, add the “Restore ODI 12R2 Objects” Phase after the “Decompress Build Result” phase and before the “Cleanup Build Result” phase.
+
+. Edit the Environment Phase Parameters of the “Restore ODI 12R2 Objects” Phase and configure all Parameters.
++
+For example:
++
+image::prod-level-phase-parameters.png[,1208,456]  
++
+. Finally, add the PROD Level to the BASE Lifecycle.
+
+
+=== Using the Kobee Project
+We will explain in detail the steps needed to promote a change in an ODI object from Development to Production.
+
+*In ODI Studio*:
+[loweralpha]
+. Make a change to an ODI object (for example : a Mapping) and save the change.
+. Generate (or re-generate) the Scenario of the Mapping.
+. Commit the changes to Git by creating a VCR Version for the Mapping and the Scenario.
+
+*In Kobee*:
+[loweralpha]
+. Create a new Kobee Package by selecting “Packages” → “Create Package” from the Top menu.
+. Select the HEAD Projectstream in the Tree Panel, and click “Select Project Stream”.
+. Give the Package a meaningful name and optionally set Description, Owner and Target Release Date. Click “Create”.
+. On the “Packages Overview” page, edit the Package.
+. In the “File and Revisions Info” Tree Panel, select the ODI objects that you changed and need to be deployed. Click “Save”.
+. On the “Package Details” page, open the “Lifecycle Actions” tab, and create a Level Request for the BUILD Level.
+. On the “Create Level Request” page, provide a description for the Level Request, and click “Create” to create the Level Request. This will retrieve the selected ODI Objects from the Git repository, and put them into an archive file that will be used on the TEST and PROD Levels to restore the ODI Objects to the target ODI Repositories.
+. When it has finished, create a Level Request for the TEST Level.
+. On the “Create Level Request” page, provide a description for the Level Request, and select the latest Build available on the BUILD Level.
+. Click “Create” to create the Level Request. This will retrieve the selected ODI Objects from the Kobee Build Archive, and restore them to the ODI TEST repository.
+. When it has finished, create a Level Request for the PROD Level.
+. On the “Create Level Request” page, provide a description for the Level Request, and select the latest Build available on the TEST Level.
+. Click “Create” to create the Level Request. This will retrieve the selected ODI Objects from the Kobee Build Archive, and restore them to the ODI PRODUCTION repository.
