@@ -261,11 +261,13 @@ image::prod-level-phase-parameters.png[,1208,456]
 We will explain in detail the steps needed to promote a change in an ODI object from Development to Production.
 
 *In ODI Studio*:
+
 . Make a change to an ODI object (for example : a Mapping) and save the change.
 . Generate (or re-generate) the Scenario of the Mapping.
 . Commit the changes to Git by creating a VCR Version for the Mapping and the Scenario.
 
 *In Kobee*:
+
 . Create a new Kobee Package by selecting “Packages” → “Create Package” from the Top menu.
 . Select the HEAD Projectstream in the Tree Panel, and click “Select Project Stream”.
 . Give the Package a meaningful name and optionally set Description, Owner and Target Release Date. Click “Create”.
