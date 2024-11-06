@@ -236,7 +236,7 @@ image::test-level-phase-parameters.png[,1209,456]
 . Edit the Production Level, and create a new Deploy Environment for it with the following parameters:
 * *Name*: proddeploy
 * *Level*: PROD
-* *Machine*: the Kobee Agent Machine that will execute the restore of the ODI Objects. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine. It must be a *Machine with an ODI installation on it.
+* *Machine*: the Kobee Agent Machine that will execute the restore of the ODI Objects. This can be the Kobee Server Machine, but can also be a different Kobee Agent Machine. It must be a Machine with an ODI installation on it.
 * *Build Environment*: build
 * *Deploy Tool*:  an Ant Scripting Tool that is installed on the Machine
 * *Deploy Script*:  not used
