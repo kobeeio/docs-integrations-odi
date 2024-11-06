@@ -307,7 +307,6 @@ Finally, add the PROD Level to the BASE Lifecycle.
 
 
 === Using the Kobee Project
-Using the Kobee Project
 We will explain in detail the steps needed to promote a change in an ODI object from Development to Production.
 
 *In ODI Studio*:
